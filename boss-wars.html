@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#2b1d3a">
+<title>Boss Wars</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+  html, body { margin: 0; height: 100%; overflow: hidden; font-family: "Trebuchet MS", system-ui, sans-serif; touch-action: manipulation; color: #fff; }
+  body { background: #2b1d3a; transition: background 0.6s; }
+  body.t1 { background: linear-gradient(#3b4a2a, #1f2615); }
+  body.t2 { background: linear-gradient(#5a2a1a, #2a120a); }
+  body.t3 { background: linear-gradient(#2a1a4a, #0d0820); }
+
+  .screen { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center; }
+  .screen.show { display: flex; }
+
+  .card { background: #f5e6c8; color: #3a2410; border: 5px solid #3a2410; border-radius: 22px; padding: 20px 22px; max-width: 440px; width: 100%; box-shadow: 0 8px 0 #3a2410; max-height: 100%; overflow-y: auto; }
+  h1 { margin: 0 0 6px; font-size: clamp(38px, 11vw, 60px); color: #f2b62b; text-shadow: 3px 3px 0 #3a2410, -1px -1px 0 #3a2410; letter-spacing: 2px; }
+  h2 { margin: 0 0 8px; font-size: 26px; }
+  p { margin: 6px 0; font-size: 17px; line-height: 1.35; }
+  .big { font-size: 80px; line-height: 1; margin: 6px 0; }
+  .btn { display: block; width: 100%; margin: 12px 0 0; padding: 14px; font: inherit; font-size: 22px; font-weight: bold; color: #fff; background: #c0392b; border: 4px solid #3a2410; border-radius: 16px; box-shadow: 0 5px 0 #3a2410; cursor: pointer; }
+  .btn:active { transform: translateY(4px); box-shadow: 0 1px 0 #3a2410; }
+  .btn.green { background: #3e9b4f; }
+  .btn.gold { background: #d99a1e; }
+  .towers { display: flex; justify-content: center; gap: 10px; margin: 10px 0; font-size: 14px; }
+  .towers div { flex: 1; background: #e8d3a8; border: 3px solid #3a2410; border-radius: 12px; padding: 6px 4px; }
+  .towers b { display: block; font-size: 15px; }
+  .stat { font-weight: bold; color: #8a3a10; }
+
+  /* gra */
+  #game { justify-content: space-between; padding: max(10px, env(safe-area-inset-top)) 12px max(14px, env(safe-area-inset-bottom)); cursor: crosshair; }
+  #hud { width: 100%; max-width: 520px; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-weight: bold; font-size: 16px; text-shadow: 2px 2px 0 #000; }
+  .pill { background: rgba(0,0,0,0.45); border-radius: 12px; padding: 5px 10px; }
+  .bar { position: relative; height: 22px; background: #222; border: 3px solid #000; border-radius: 12px; overflow: hidden; }
+  .bar > i { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; transition: width 0.15s; }
+  .bar > span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: bold; text-shadow: 1px 1px 0 #000; }
+  #enemyHpFill { background: linear-gradient(#ff5b4a, #b71c1c); }
+  #heroHpFill { background: linear-gradient(#6fe06f, #2e8b2e); }
+  #atkFill { background: #ffb02e; transition: none; }
+  .bar.thin { height: 10px; border-width: 2px; }
+
+  #arena { flex: 1; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; pointer-events: none; }
+  #enemyName { font-size: 26px; font-weight: bold; text-shadow: 2px 2px 0 #000; margin-bottom: 4px; }
+  #enemy { font-size: min(42vw, 30vh); line-height: 1.05; animation: idle 1.2s infinite alternate ease-in-out; filter: drop-shadow(0 10px 6px rgba(0,0,0,0.5)); }
+  #enemy.hit { animation: hit 0.15s; filter: brightness(2.2) drop-shadow(0 10px 6px rgba(0,0,0,0.5)); }
+  #enemy.attack { animation: lunge 0.35s; }
+  #enemy.dead { animation: die 0.7s forwards; }
+  #enemy.boss { font-size: min(55vw, 36vh); }
+  @keyframes idle { from { transform: translateY(0) scale(1); } to { transform: translateY(-8px) scale(1.03); } }
+  @keyframes hit { 0% { transform: translateX(-10px) rotate(-5deg); } 50% { transform: translateX(10px) rotate(5deg); } 100% { transform: translateX(0); } }
+  @keyframes lunge { 0% { transform: scale(1); } 50% { transform: scale(1.35) translateY(30px); } 100% { transform: scale(1); } }
+  @keyframes die { to { transform: scale(0.2) rotate(200deg); opacity: 0; } }
+
+  #hero { display: flex; align-items: center; gap: 10px; font-size: 54px; pointer-events: none; }
+  #hero.hurt { animation: hit 0.25s; }
+  #weapon { font-size: 40px; display: inline-block; transition: transform 0.08s; }
+  #weapon.swing { transform: rotate(-60deg) scale(1.3); }
+  #heroBox { width: 100%; max-width: 520px; display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
+  #heroBox .bar { width: 100%; }
+  #hint { font-size: 15px; opacity: 0.85; text-shadow: 1px 1px 0 #000; }
+
+  .dmg { position: fixed; font-weight: bold; font-size: 30px; color: #ffe14d; text-shadow: 2px 2px 0 #000; pointer-events: none; animation: float 0.8s forwards; z-index: 5; }
+  .dmg.bad { color: #ff4a4a; font-size: 36px; }
+  @keyframes float { to { transform: translateY(-70px); opacity: 0; } }
+
+  #flash { position: fixed; inset: 0; background: rgba(255,0,0,0.35); opacity: 0; pointer-events: none; transition: opacity 0.25s; }
+  #flash.on { opacity: 1; transition: none; }
+  .shake { animation: shake 0.3s; }
+  @keyframes shake { 25% { transform: translate(-6px, 3px); } 50% { transform: translate(6px, -3px); } 75% { transform: translate(-4px, 2px); } }
+
+  #overlay { background: rgba(0,0,0,0.6); z-index: 10; }
+  .crownSpin { display: inline-block; animation: crown 1.2s infinite alternate ease-in-out; }
+  @keyframes crown { from { transform: rotate(-10deg) scale(1); } to { transform: rotate(10deg) scale(1.15); } }
+  #countdown { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; font-size: min(110px, 22vw); font-weight: bold; text-shadow: 5px 5px 0 #000; pointer-events: none; z-index: 6; }
+</style>
+</head>
+<body class="t1">
+
+<!-- MENU -->
+<div id="menu" class="screen show">
+  <div class="card">
+    <h1>BOSS WARS</h1>
+    <div class="big">🏰⚔️🏰</div>
+    <p>Twój rycerz musi zdobyć <b>3 wieże</b>, każda ma <b>3 piętra</b>. Na ostatnim piętrze każdej wieży czeka <b>Boss</b>!</p>
+    <p>👆 <b>Klikaj w ekran</b>, żeby atakować. Za każdego pokonanego wroga dostajesz lepszą broń.</p>
+    <p>❤️ Masz <span class="stat">100 HP</span>, a wrogowie zadają po <span class="stat">10 HP</span>. Bądź szybki!</p>
+    <div class="towers">
+      <div><b>🌲 Wieża 1</b>🧟 🗿 👹</div>
+      <div><b>🔥 Wieża 2</b>💀 🧌 🐉</div>
+      <div><b>🌑 Wieża 3</b>😈 👻 👿</div>
+    </div>
+    <p id="menuCrowns"></p>
+    <button class="btn" id="playBtn">⚔️ GRAJ</button>
+  </div>
+</div>
+
+<!-- GRA -->
+<div id="game" class="screen">
+  <div id="hud">
+    <div class="row">
+      <span class="pill" id="towerLbl">Wieża 1/3</span>
+      <span class="pill" id="floorLbl">Piętro 1/3</span>
+      <span class="pill" id="crownLbl">👑 0</span>
+    </div>
+    <div class="bar"><i id="enemyHpFill"></i><span id="enemyHpTxt"></span></div>
+    <div class="bar thin"><i id="atkFill"></i></div>
+  </div>
+
+  <div id="arena">
+    <div id="enemyName"></div>
+    <div id="enemy"></div>
+  </div>
+
+  <div id="heroBox">
+    <div id="hero">🛡️<span>🤺</span><span id="weapon">🗡️</span></div>
+    <div class="row" style="width:100%">
+      <span class="pill" id="weaponLbl"></span>
+      <span class="pill" id="dmgLbl"></span>
+    </div>
+    <div class="bar"><i id="heroHpFill"></i><span id="heroHpTxt"></span></div>
+    <div id="hint">👆 Klikaj w ekran, żeby atakować!</div>
+  </div>
+</div>
+
+<div id="countdown"></div>
+<div id="flash"></div>
+
+<!-- NAKŁADKA (nagroda / przegrana / wygrana) -->
+<div id="overlay" class="screen">
+  <div class="card" id="overlayCard"></div>
+</div>
+
+<script>
+// ===== DANE GRY =====
+const TOWERS = [
+  {
+    name: 'Leśna Wieża', cls: 't1',
+    startWeapon: { name: 'Drewniany miecz', icon: '🗡️', dmg: 10 },
+    floors: [
+      { name: 'Zombie', icon: '🧟', hp: 10, atkEvery: 2.0, reward: { name: 'Żelazny miecz', icon: '⚔️', dmg: 15 } },
+      { name: 'Kamienny Golem', icon: '🗿', hp: 100, atkEvery: 1.8, reward: { name: 'Bojowy topór', icon: '🪓', dmg: 20 } },
+      { name: 'BOSS: Wściekły Ogr', icon: '👹', hp: 500, atkEvery: 1.5, boss: true },
+    ],
+  },
+  {
+    name: 'Ognista Wieża', cls: 't2',
+    startWeapon: { name: 'Srebrna włócznia', icon: '🔱', dmg: 40 },
+    floors: [
+      { name: 'Szkielet Wojownik', icon: '💀', hp: 300, atkEvery: 1.5, reward: { name: 'Młot burzy', icon: '🔨', dmg: 55 } },
+      { name: 'Górski Troll', icon: '🧌', hp: 800, atkEvery: 1.4, reward: { name: 'Ognisty miecz', icon: '🔥', dmg: 75 } },
+      { name: 'BOSS: Czerwony Smok', icon: '🐉', hp: 2000, atkEvery: 1.3, boss: true },
+    ],
+  },
+  {
+    name: 'Mroczna Wieża', cls: 't3',
+    startWeapon: { name: 'Smoczy miecz', icon: '🐲', dmg: 100 },
+    floors: [
+      { name: 'Demon', icon: '😈', hp: 1200, atkEvery: 1.3, reward: { name: 'Różdżka błyskawic', icon: '⚡', dmg: 140 } },
+      { name: 'Upiór', icon: '👻', hp: 2500, atkEvery: 1.2, reward: { name: 'Gwiezdne ostrze', icon: '🌟', dmg: 180 } },
+      { name: 'BOSS: Mroczny Król', icon: '👿', hp: 5000, atkEvery: 1.1, boss: true },
+    ],
+  },
+];
+const ENEMY_DMG = 10;
+const HERO_MAX_HP = 100;
+
+// ===== STAN =====
+let tower = 0, floor = 0, weapon, heroHp, enemyHp, enemyMax, crowns = 0;
+let state = 'menu'; // menu | countdown | fight | between
+let atkTimer = 0, lastT = 0, rafId = null;
+
+const $ = id => document.getElementById(id);
+const screens = { menu: $('menu'), game: $('game'), overlay: $('overlay') };
+
+// ===== DŹWIĘK =====
+let actx = null;
+function beep(freq, dur, type = 'square', vol = 0.06) {
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, actx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+    o.connect(g); g.connect(actx.destination);
+    o.start(); o.stop(actx.currentTime + dur);
+  } catch (e) {}
+}
+const sfx = {
+  hit: () => beep(220 + Math.random() * 80, 0.08),
+  hurt: () => beep(90, 0.25, 'sawtooth', 0.1),
+  win: () => [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => beep(f, 0.18, 'triangle', 0.08), i * 120)),
+  lose: () => [392, 330, 262, 196].forEach((f, i) => setTimeout(() => beep(f, 0.25, 'sawtooth', 0.07), i * 180)),
+};
+
+// ===== MENU =====
+function bestCrowns() { return +(localStorage.getItem('bossWarsWins') || 0); }
+function showMenu() {
+  state = 'menu';
+  cancelAnimationFrame(rafId);
+  document.body.className = 't1';
+  const w = bestCrowns();
+  $('menuCrowns').innerHTML = w ? `🏆 Wygrane gry: <b>${w}</b>` : '';
+  show('menu');
+}
+function show(name) {
+  for (const k in screens) screens[k].classList.toggle('show', k === name || (name === 'overlay' && k === 'game'));
+}
+
+$('playBtn').addEventListener('click', () => {
+  beep(440, 0.05);
+  tower = 0; floor = 0; crowns = 0;
+  startTower();
+});
+
+// ===== WIEŻE I PIĘTRA =====
+function startTower() {
+  weapon = { ...TOWERS[tower].startWeapon };
+  document.body.className = TOWERS[tower].cls;
+  floor = 0;
+  startFloor();
+}
+
+function startFloor() {
+  const f = TOWERS[tower].floors[floor];
+  heroHp = HERO_MAX_HP; // rycerz wchodzi na każde piętro z pełnym zdrowiem
+  enemyMax = enemyHp = f.hp;
+  atkTimer = 0;
+  const e = $('enemy');
+  e.className = f.boss ? 'boss' : '';
+  e.textContent = f.icon;
+  $('enemyName').textContent = f.name;
+  updateHud();
+  show('game');
+  countdown();
+}
+
+function countdown() {
+  state = 'countdown';
+  const c = $('countdown');
+  c.style.display = 'flex';
+  let n = 3;
+  const tick = () => {
+    if (state !== 'countdown') { c.style.display = 'none'; return; }
+    if (n > 0) { c.textContent = n; beep(330, 0.1); n--; setTimeout(tick, 600); }
+    else {
+      c.textContent = 'WALCZ!'; beep(660, 0.2);
+      setTimeout(() => { c.style.display = 'none'; }, 500);
+      state = 'fight';
+      lastT = performance.now();
+      rafId = requestAnimationFrame(loop);
+    }
+  };
+  tick();
+}
+
+function updateHud() {
+  const f = TOWERS[tower].floors[floor];
+  $('towerLbl').textContent = `Wieża ${tower + 1}/3`;
+  $('floorLbl').textContent = f.boss ? 'Piętro 3/3 – BOSS' : `Piętro ${floor + 1}/3`;
+  $('crownLbl').textContent = `👑 ${crowns}`;
+  $('enemyHpFill').style.width = (enemyHp / enemyMax * 100) + '%';
+  $('enemyHpTxt').textContent = `${Math.max(0, enemyHp)} / ${enemyMax} HP`;
+  $('heroHpFill').style.width = (heroHp / HERO_MAX_HP * 100) + '%';
+  $('heroHpTxt').textContent = `❤️ Rycerz: ${heroHp} / ${HERO_MAX_HP} HP`;
+  $('weapon').textContent = weapon.icon;
+  $('weaponLbl').textContent = `${weapon.icon} ${weapon.name}`;
+  $('dmgLbl').textContent = `💥 ${weapon.dmg} obrażeń`;
+}
+
+// ===== PĘTLA (ataki wroga) =====
+function loop(t) {
+  if (state !== 'fight') return;
+  const dt = Math.min(0.1, (t - lastT) / 1000);
+  lastT = t;
+  const f = TOWERS[tower].floors[floor];
+  atkTimer += dt;
+  $('atkFill').style.width = Math.min(100, atkTimer / f.atkEvery * 100) + '%';
+  if (atkTimer >= f.atkEvery) {
+    atkTimer = 0;
+    enemyAttack();
+  }
+  if (state === 'fight') rafId = requestAnimationFrame(loop);
+}
+
+function enemyAttack() {
+  heroHp = Math.max(0, heroHp - ENEMY_DMG);
+  sfx.hurt();
+  const e = $('enemy');
+  e.classList.remove('attack'); void e.offsetWidth; e.classList.add('attack');
+  const h = $('hero');
+  h.classList.remove('hurt'); void h.offsetWidth; h.classList.add('hurt');
+  const fl = $('flash');
+  fl.classList.add('on'); setTimeout(() => fl.classList.remove('on'), 60);
+  const g = $('game');
+  g.classList.remove('shake'); void g.offsetWidth; g.classList.add('shake');
+  const r = h.getBoundingClientRect();
+  floatText(`-${ENEMY_DMG}`, r.left + r.width / 2, r.top, true);
+  updateHud();
+  if (heroHp <= 0) lose();
+}
+
+// ===== ATAK GRACZA =====
+$('game').addEventListener('pointerdown', ev => {
+  if (state !== 'fight') return;
+  ev.preventDefault();
+  enemyHp -= weapon.dmg;
+  sfx.hit();
+  floatText(`-${weapon.dmg}`, ev.clientX, ev.clientY);
+  const e = $('enemy');
+  e.classList.remove('hit'); void e.offsetWidth; e.classList.add('hit');
+  setTimeout(() => e.classList.remove('hit'), 150);
+  const w = $('weapon');
+  w.classList.add('swing'); setTimeout(() => w.classList.remove('swing'), 90);
+  $('hint').style.visibility = 'hidden';
+  updateHud();
+  if (enemyHp <= 0) enemyDefeated();
+});
+
+function floatText(txt, x, y, bad) {
+  const d = document.createElement('div');
+  d.className = 'dmg' + (bad ? ' bad' : '');
+  d.textContent = txt;
+  d.style.left = (x - 20 + (Math.random() * 30 - 15)) + 'px';
+  d.style.top = (y - 30) + 'px';
+  document.body.appendChild(d);
+  setTimeout(() => d.remove(), 800);
+}
+
+// ===== WYNIKI =====
+function enemyDefeated() {
+  state = 'between';
+  enemyHp = 0;
+  updateHud();
+  $('enemy').className = 'dead';
+  sfx.win();
+  const f = TOWERS[tower].floors[floor];
+  setTimeout(() => {
+    if (!f.boss) {
+      weapon = { ...f.reward };
+      overlay(`
+        <h2>Pokonałeś: ${f.name}!</h2>
+        <div class="big">${f.reward.icon}</div>
+        <p>Zdobywasz nową broń:</p>
+        <p><b>${f.reward.name}</b> – <span class="stat">${f.reward.dmg} obrażeń</span> za kliknięcie!</p>
+        <button class="btn green" id="nextBtn">⬆️ Następne piętro</button>`);
+      $('nextBtn').onclick = () => { floor++; startFloor(); };
+    } else {
+      crowns++;
+      if (tower < TOWERS.length - 1) {
+        const next = TOWERS[tower + 1];
+        overlay(`
+          <h2>${TOWERS[tower].name} zdobyta!</h2>
+          <div class="big crownSpin">👑</div>
+          <p>Pokonałeś bossa i zdobywasz <b>Koronę Zwycięstwa</b>! (👑 ${crowns}/3)</p>
+          <p>W następnej wieży czekają silniejsi wrogowie, ale dostajesz lepszą broń:</p>
+          <p><b>${next.startWeapon.icon} ${next.startWeapon.name}</b> – <span class="stat">${next.startWeapon.dmg} obrażeń</span></p>
+          <button class="btn gold" id="nextBtn">🏰 Wieża ${tower + 2}: ${next.name}</button>`);
+        $('nextBtn').onclick = () => { tower++; startTower(); };
+      } else {
+        localStorage.setItem('bossWarsWins', bestCrowns() + 1);
+        overlay(`
+          <h1>ZWYCIĘSTWO!</h1>
+          <div class="big crownSpin">👑👑👑</div>
+          <p>Zdobyłeś wszystkie <b>3 wieże</b> i pokonałeś <b>Mrocznego Króla</b>!</p>
+          <p>Jesteś prawdziwym bohaterem królestwa! 🏆</p>
+          <button class="btn green" id="menuBtn">🏠 Wróć do menu</button>`);
+        $('menuBtn').onclick = showMenu;
+      }
+    }
+  }, 750);
+}
+
+function lose() {
+  state = 'between';
+  sfx.lose();
+  const f = TOWERS[tower].floors[floor];
+  setTimeout(() => {
+    overlay(`
+      <h2>Rycerz poległ…</h2>
+      <div class="big">💀</div>
+      <p>Pokonał cię <b>${f.name}</b> (Wieża ${tower + 1}, piętro ${floor + 1}).</p>
+      <p>Klikaj szybciej następnym razem!</p>
+      <button class="btn" id="menuBtn">🏠 Wróć do menu</button>`);
+    $('menuBtn').onclick = showMenu;
+  }, 600);
+}
+
+function overlay(html) {
+  $('overlayCard').innerHTML = html;
+  show('overlay');
+}
+
+showMenu();
+</script>
+</body>
+</html>
