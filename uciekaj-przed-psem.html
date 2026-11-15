@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#7ec8f2">
+<title>Uciekaj przed psem!</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #7ec8f2; font-family: "Comic Sans MS", "Chalkboard SE", "Comic Neue", system-ui, sans-serif; touch-action: none; }
+  canvas#game { display: block; width: 100vw; height: 100vh; height: 100dvh; }
+  .overlay { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: safe center; overflow-y: auto; gap: 14px; padding: 20px; text-align: center; background: rgba(40, 90, 140, 0.35); }
+  .overlay.show { display: flex; }
+  .card { margin: auto; background: #fff8e7; border: 5px solid #5a3a1a; border-radius: 26px; padding: 20px 22px; max-width: 420px; width: 100%; box-shadow: 0 8px 0 #5a3a1a; }
+  h1 { margin: 0 0 6px; font-size: clamp(28px, 8vw, 44px); color: #e8572a; text-shadow: 3px 3px 0 #5a3a1a; line-height: 1.05; }
+  h2 { margin: 0 0 10px; color: #5a3a1a; }
+  p { margin: 6px 0; color: #5a3a1a; font-size: 17px; line-height: 1.35; }
+  .btn { display: block; width: 100%; margin: 10px 0 0; padding: 14px; font: inherit; font-size: 22px; font-weight: bold; color: #fff; background: #f28c28; border: 4px solid #5a3a1a; border-radius: 18px; box-shadow: 0 5px 0 #5a3a1a; cursor: pointer; }
+  .btn:active { transform: translateY(4px); box-shadow: 0 1px 0 #5a3a1a; }
+  .btn.green { background: #4cb050; }
+  .btn.blue { background: #3d8fd6; }
+  .best { font-weight: bold; color: #3d8fd6; font-size: 19px; }
+  #menuDog, #overDog { display: block; margin: 0 auto; height: min(190px, 30vh); width: auto; aspect-ratio: 440 / 380; }
+  #overDog { height: min(270px, 45vh); aspect-ratio: 600 / 540; }
+  @media (max-height: 500px) {
+    .card { padding: 10px 16px; border-width: 4px; }
+    h1 { font-size: 30px; } h1 br { display: none; }
+    p { font-size: 15px; margin: 3px 0; }
+    .gotyou { font-size: 38px; }
+    .btn { padding: 8px; font-size: 18px; margin-top: 6px; }
+    .btns { display: flex; gap: 10px; } .btns .btn { flex: 1; }
+  }
+  .gotyou { font-size: clamp(40px, 13vw, 66px); color: #e8572a; font-weight: bold; text-shadow: 4px 4px 0 #5a3a1a; margin: 0; animation: bounce 0.6s infinite alternate ease-in-out; }
+  @keyframes bounce { from { transform: scale(1) rotate(-3deg); } to { transform: scale(1.1) rotate(3deg); } }
+  .newrec { color: #4cb050; font-weight: bold; font-size: 22px; }
+  #hudBtns { position: fixed; top: max(10px, env(safe-area-inset-top)); right: 10px; display: none; gap: 8px; }
+  #hudBtns button { width: 46px; height: 46px; font-size: 22px; border-radius: 14px; border: 3px solid #5a3a1a; background: #fff8e7; box-shadow: 0 3px 0 #5a3a1a; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hudBtns">
+  <button id="soundBtn" aria-label="Dźwięk">🔊</button>
+  <button id="pauseBtn" aria-label="Pauza">⏸</button>
+</div>
+
+<!-- MENU -->
+<div class="overlay show" id="menu">
+  <div class="card">
+    <h1>Uciekaj<br>przed psem!</h1>
+    <canvas id="menuDog" width="440" height="380"></canvas>
+    <p>Wesoły cocker spaniel Kokos bardzo chce się z Tobą bawić!</p>
+    <p class="best" id="menuBest">Rekord: 0 m</p>
+    <div class="btns"><button class="btn green" id="playBtn">▶ Graj</button>
+    <button class="btn blue" id="howBtn">❓ Jak grać?</button></div>
+  </div>
+</div>
+
+<!-- JAK GRAĆ -->
+<div class="overlay" id="how">
+  <div class="card">
+    <h2>Jak grać?</h2>
+    <p>👆 <b>Dotknij ekranu</b> (lub naciśnij spację), aby <b>skoczyć</b>.</p>
+    <p>🪵 Przeskakuj kłody, kamienie, krzaki i kałuże.</p>
+    <p>💥 Każde zderzenie <b>spowalnia Cię</b>, a Kokos się zbliża!</p>
+    <p>🏃 Gdy biegniesz bez potknięć, powoli odzyskujesz przewagę.</p>
+    <p>🐶 Jeśli pies Cię dogoni – koniec gry!</p>
+    <button class="btn" id="backBtn">⬅ Wróć</button>
+  </div>
+</div>
+
+<!-- PAUZA -->
+<div class="overlay" id="pause">
+  <div class="card">
+    <h2>Pauza</h2>
+    <button class="btn green" id="resumeBtn">▶ Wznów</button>
+    <button class="btn blue" id="pauseMenuBtn">🏠 Menu</button>
+  </div>
+</div>
+
+<!-- KONIEC GRY -->
+<div class="overlay" id="over">
+  <div class="card">
+    <p class="gotyou">MAM CIĘ!</p>
+    <canvas id="overDog" width="600" height="540"></canvas>
+    <p style="font-size:22px">Przebiegłeś: <b id="overScore">0 m</b></p>
+    <p class="newrec" id="overNew" style="display:none">🏆 Nowy rekord!</p>
+    <p class="best" id="overBest">Rekord: 0 m</p>
+    <div class="btns"><button class="btn green" id="againBtn">🔁 Zagraj ponownie</button>
+    <button class="btn blue" id="overMenuBtn">🏠 Menu</button></div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+// ---------- Ustawienia ----------
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const $ = id => document.getElementById(id);
+
+let DPR = 1, scale = 1, VW = 600, VH = 400, GROUND = 320;
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  const w = window.innerWidth, h = window.innerHeight;
+  canvas.width = Math.round(w * DPR);
+  canvas.height = Math.round(h * DPR);
+  scale = Math.min(h / 400, w / 500);
+  VW = w / scale; VH = h / scale;
+  GROUND = VH - Math.min(90, VH * 0.22);
+}
+window.addEventListener('resize', resize);
+resize();
+
+const BEST_KEY = 'uciekajPrzedPsem_rekord';
+let best = +localStorage.getItem(BEST_KEY) || 0;
+
+// ---------- Dźwięk ----------
+let audio = null, soundOn = localStorage.getItem('uciekaj_dzwiek') !== '0';
+function ac() { if (!audio) { try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (audio && audio.state === 'suspended') audio.resume(); return audio; }
+function tone(f1, f2, dur, type = 'square', vol = 0.12, delay = 0) {
+  if (!soundOn) return; const a = ac(); if (!a) return;
+  const t = a.currentTime + delay, o = a.createOscillator(), g = a.createGain();
+  o.type = type; o.frequency.setValueAtTime(f1, t); o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + 0.02);
+}
+const sfx = {
+  jump: () => tone(380, 760, 0.15, 'square', 0.08),
+  bump: () => tone(180, 60, 0.25, 'sawtooth', 0.15),
+  woof: () => { tone(320, 150, 0.14, 'sawtooth', 0.18); tone(300, 140, 0.16, 'sawtooth', 0.18, 0.2); },
+};
+function updateSoundBtn() { $('soundBtn').textContent = soundOn ? '🔊' : '🔇'; }
+updateSoundBtn();
+
+// ---------- Stan gry ----------
+let state = 'menu'; // menu | play | pause | caught | over
+let player, dog, obstacles, clouds, speed, distance, nextSpawn, groundOff, time, caughtT, particles, shake;
+
+const JUMP_V = -680, GRAV = 2000;
+
+function reset() {
+  const px = Math.max(170, Math.min(VW * 0.42, 320));
+  player = { x: px, y: GROUND, vy: 0, onGround: true, stumble: 0, run: 0, jumpBuf: 0 };
+  dog = { gap: Math.min(210, px - 60), run: 0, x: 0, y: GROUND, hop: 0 };
+  obstacles = []; particles = [];
+  clouds = Array.from({ length: 6 }, (_, i) => ({ x: Math.random() * VW * 1.5, y: 20 + Math.random() * (GROUND * 0.4), s: 0.6 + Math.random() * 0.7 }));
+  speed = 300; distance = 0; nextSpawn = 500; groundOff = 0; time = 0; caughtT = 0; shake = 0;
+}
+reset();
+
+// ---------- Sterowanie ----------
+function jump() {
+  if (state !== 'play') return;
+  player.jumpBuf = 0.15;
+}
+canvas.addEventListener('pointerdown', e => { e.preventDefault(); ac(); jump(); });
+window.addEventListener('keydown', e => {
+  if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') { e.preventDefault(); if (state === 'play') jump(); else if (state === 'menu') startGame(); }
+  if (e.code === 'Escape' || e.code === 'KeyP') { if (state === 'play') pauseGame(); else if (state === 'pause') resumeGame(); }
+});
+document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play') pauseGame(); });
+
+function show(id) { ['menu', 'how', 'pause', 'over'].forEach(o => $(o).classList.toggle('show', o === id)); }
+function startGame() { ac(); reset(); state = 'play'; show(null); $('hudBtns').style.display = 'flex'; last = performance.now(); }
+function pauseGame() { state = 'pause'; show('pause'); }
+function resumeGame() { state = 'play'; show(null); last = performance.now(); }
+function toMenu() { state = 'menu'; reset(); show('menu'); $('hudBtns').style.display = 'none'; $('menuBest').textContent = 'Rekord: ' + best + ' m'; }
+
+$('playBtn').onclick = startGame;
+$('againBtn').onclick = startGame;
+$('howBtn').onclick = () => show('how');
+$('backBtn').onclick = () => show('menu');
+$('resumeBtn').onclick = resumeGame;
+$('pauseMenuBtn').onclick = toMenu;
+$('overMenuBtn').onclick = toMenu;
+$('pauseBtn').onclick = e => { e.stopPropagation(); if (state === 'play') pauseGame(); };
+$('soundBtn').onclick = e => { e.stopPropagation(); soundOn = !soundOn; localStorage.setItem('uciekaj_dzwiek', soundOn ? '1' : '0'); updateSoundBtn(); };
+['pauseBtn', 'soundBtn'].forEach(id => $(id).addEventListener('pointerdown', e => e.stopPropagation()));
+$('menuBest').textContent = 'Rekord: ' + best + ' m';
+
+// ---------- Przeszkody ----------
+const TYPES = [
+  { kind: 'log', w: 64, h: 30 },
+  { kind: 'rock', w: 44, h: 34 },
+  { kind: 'bush', w: 54, h: 40 },
+  { kind: 'puddle', w: 80, h: 8 },
+  { kind: 'cone', w: 30, h: 44 },
+];
+function spawn() {
+  const t = TYPES[Math.floor(Math.random() * TYPES.length)];
+  obstacles.push({ ...t, x: VW + 40, hit: false });
+  // czasem dwie przeszkody obok siebie
+  if (speed > 380 && Math.random() < 0.18 && t.kind !== 'puddle') {
+    const t2 = TYPES[Math.floor(Math.random() * 2)];
+    obstacles.push({ ...t2, x: VW + 40 + t.w + 6, hit: false });
+  }
+  const airDist = speed * 0.68;
+  nextSpawn = airDist + 90 + Math.random() * (260 + speed * 0.6);
+}
+
+// ---------- Aktualizacja ----------
+function update(dt) {
+  time += dt;
+  if (state === 'play') {
+    speed = Math.min(560, speed + 7 * dt);
+    const p = player;
+    const slow = p.stumble > 0 ? 0.5 : 1;
+    const v = speed * slow;
+    distance += v * dt;
+    groundOff = (groundOff + v * dt) % 40;
+
+    // skok (z buforem, żeby był wybaczający)
+    if (p.jumpBuf > 0) {
+      p.jumpBuf -= dt;
+      if (p.onGround && p.stumble < 0.45) { p.vy = JUMP_V; p.onGround = false; p.jumpBuf = 0; sfx.jump(); dust(p.x, GROUND, 5); }
+    }
+    p.vy += GRAV * dt; p.y += p.vy * dt;
+    if (p.y >= GROUND) { if (!p.onGround) dust(p.x, GROUND, 4); p.y = GROUND; p.vy = 0; p.onGround = true; }
+    p.run += dt * v / 22;
+    if (p.stumble > 0) p.stumble -= dt;
+
+    // przeszkody
+    nextSpawn -= v * dt;
+    if (nextSpawn <= 0) spawn();
+    for (const o of obstacles) {
+      o.x -= v * dt;
+      if (!o.hit && p.x + 12 > o.x + 6 && p.x - 12 < o.x + o.w - 6 && p.y > GROUND - o.h + 6) {
+        o.hit = true; p.stumble = 0.9; shake = 0.25; sfx.bump();
+        for (let i = 0; i < 10; i++) particles.push({ x: p.x + 10, y: p.y - 30, vx: (Math.random() - 0.3) * 250, vy: -Math.random() * 250, life: 0.6, c: '#ffd23f', star: true });
+      }
+    }
+    obstacles = obstacles.filter(o => o.x > -120);
+
+    // pies
+    const maxGap = Math.min(220, p.x - 55);
+    if (p.stumble > 0) dog.gap -= 165 * dt;
+    else dog.gap = Math.min(maxGap, dog.gap + (24 - (speed - 300) / 40) * dt);
+    if (dog.gap < 42) { state = 'caught'; caughtT = 0; sfx.woof(); }
+  } else if (state === 'caught') {
+    caughtT += dt;
+    dog.gap = Math.max(0, dog.gap - 200 * dt);
+    if (caughtT > 1.1) gameOver();
+  }
+  // pies biega zawsze (także w menu dla tła)
+  if (state !== 'pause') {
+    dog.run += dt * (state === 'menu' ? 14 : speed / 22);
+    dog.x = player.x - dog.gap;
+    dog.hop = Math.abs(Math.sin(dog.run * 0.5)) * 8;
+    for (const c of clouds) { c.x -= (state === 'menu' ? 20 : speed * 0.1) * c.s * dt; if (c.x < -150) { c.x = VW + 100; c.y = 20 + Math.random() * (GROUND * 0.4); } }
+    if (state === 'menu') { player.run += dt * 14; groundOff = (groundOff + 180 * dt) % 40; }
+  }
+  for (const pt of particles) { pt.x += pt.vx * dt; pt.y += pt.vy * dt; pt.vy += 700 * dt; pt.life -= dt; }
+  particles = particles.filter(pt => pt.life > 0);
+  if (shake > 0) shake -= dt;
+}
+
+function dust(x, y, n) { for (let i = 0; i < n; i++) particles.push({ x: x - 10, y, vx: -60 - Math.random() * 120, vy: -Math.random() * 120, life: 0.4, c: 'rgba(200,170,120,0.8)' }); }
+
+function gameOver() {
+  state = 'over';
+  const score = Math.floor(distance / 30);
+  const isNew = score > best;
+  if (isNew) { best = score; localStorage.setItem(BEST_KEY, best); }
+  $('overScore').textContent = score + ' m';
+  $('overNew').style.display = isNew ? 'block' : 'none';
+  $('overBest').textContent = 'Rekord: ' + best + ' m';
+  $('hudBtns').style.display = 'none';
+  show('over');
+}
+
+// ---------- Rysowanie: pomocnicze ----------
+const OUT = '#3b2510';
+function ell(c, x, y, rx, ry, fill, rot = 0, stroke = true) { c.beginPath(); c.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2); c.fillStyle = fill; c.fill(); if (stroke) c.stroke(); }
+function rrect(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
+
+// ---------- Tło ----------
+function drawBackground() {
+  const g = ctx.createLinearGradient(0, 0, 0, GROUND);
+  g.addColorStop(0, '#5fb6ee'); g.addColorStop(1, '#bfe6fb');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, VW, VH);
+  // słońce
+  ctx.save(); ctx.translate(VW - 80, 70);
+  ctx.rotate(time * 0.3);
+  ctx.fillStyle = '#ffe066';
+  for (let i = 0; i < 12; i++) { ctx.rotate(Math.PI / 6); ctx.fillRect(38, -4, 16, 8); }
+  ctx.restore();
+  ctx.lineWidth = 3; ctx.strokeStyle = '#e8a817';
+  ell(ctx, VW - 80, 70, 32, 32, '#ffd23f');
+  // chmury
+  for (const c of clouds) {
+    ctx.save(); ctx.translate(c.x, c.y); ctx.scale(c.s, c.s);
+    ctx.fillStyle = '#fff';
+    [[0, 0, 30], [30, -12, 34], [62, 0, 28], [30, 8, 30]].forEach(([x, y, r]) => { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); });
+    ctx.restore();
+  }
+  // wzgórza (paralaksa)
+  const off = (distance * 0.15) % 400;
+  ctx.fillStyle = '#8fd16a';
+  ctx.beginPath(); ctx.moveTo(0, GROUND);
+  for (let x = -off - 400; x < VW + 400; x += 400) { ctx.quadraticCurveTo(x + 100, GROUND - 120, x + 200, GROUND); ctx.quadraticCurveTo(x + 300, GROUND - 70, x + 400, GROUND); }
+  ctx.lineTo(VW, GROUND); ctx.fill();
+  // drzewa
+  const toff = (distance * 0.35) % 260;
+  for (let x = -toff; x < VW + 100; x += 260) {
+    ctx.fillStyle = '#8a5a2b'; ctx.fillRect(x + 60, GROUND - 60, 12, 60);
+    ctx.fillStyle = '#4fa83d';
+    ctx.beginPath(); ctx.arc(x + 66, GROUND - 78, 32, 0, Math.PI * 2); ctx.arc(x + 46, GROUND - 62, 22, 0, Math.PI * 2); ctx.arc(x + 88, GROUND - 62, 22, 0, Math.PI * 2); ctx.fill();
+  }
+  // ziemia
+  ctx.fillStyle = '#6cc04a'; ctx.fillRect(0, GROUND, VW, 18);
+  ctx.fillStyle = '#c8955a'; ctx.fillRect(0, GROUND + 18, VW, VH - GROUND);
+  ctx.strokeStyle = '#3e8f2a'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(0, GROUND); ctx.lineTo(VW, GROUND); ctx.stroke();
+  ctx.fillStyle = '#56a83a';
+  for (let x = -groundOff; x < VW + 40; x += 40) { ctx.beginPath(); ctx.moveTo(x, GROUND + 18); ctx.lineTo(x + 10, GROUND + 6); ctx.lineTo(x + 20, GROUND + 18); ctx.fill(); }
+  ctx.fillStyle = '#b07d45';
+  for (let x = -groundOff * 1; x < VW + 40; x += 80) { ell(ctx, x + 20, GROUND + 40, 8, 4, '#b07d45', 0, false); ell(ctx, x + 60, GROUND + 62, 5, 3, '#b07d45', 0, false); }
+}
+
+// ---------- Przeszkody: rysowanie ----------
+function drawObstacle(o) {
+  const x = o.x, y = GROUND;
+  ctx.lineWidth = 3; ctx.strokeStyle = OUT;
+  if (o.kind === 'log') {
+    rrect(ctx, x, y - o.h, o.w, o.h, 12); ctx.fillStyle = '#9b6232'; ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = '#6e4220'; ctx.beginPath(); ctx.moveTo(x + 14, y - 20); ctx.lineTo(x + 40, y - 20); ctx.moveTo(x + 20, y - 10); ctx.lineTo(x + 48, y - 10); ctx.stroke();
+    ctx.strokeStyle = OUT; ell(ctx, x + o.w - 6, y - o.h / 2, 9, o.h / 2, '#e3b27a');
+    ctx.strokeStyle = '#9b6232'; ctx.beginPath(); ctx.ellipse(x + o.w - 6, y - o.h / 2, 4, 8, 0, 0, Math.PI * 2); ctx.stroke();
+  } else if (o.kind === 'rock') {
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x - 2, y - o.h, x + o.w * 0.45, y - o.h); ctx.quadraticCurveTo(x + o.w + 4, y - o.h + 4, x + o.w, y); ctx.closePath();
+    ctx.fillStyle = '#9aa3ad'; ctx.fill(); ctx.stroke();
+    ell(ctx, x + 14, y - o.h + 10, 7, 4, '#c9d0d7', -0.4, false);
+  } else if (o.kind === 'bush') {
+    ctx.fillStyle = '#3f9a36';
+    ctx.beginPath(); ctx.arc(x + 14, y - 14, 16, 0, Math.PI * 2); ctx.arc(x + o.w - 14, y - 14, 16, 0, Math.PI * 2); ctx.arc(x + o.w / 2, y - o.h + 18, 19, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#3f9a36'; ctx.fillRect(x + 6, y - 20, o.w - 12, 18);
+    ctx.fillStyle = '#e8463d'; [[14, 22], [34, 30], [42, 14]].forEach(([dx, dy]) => { ctx.beginPath(); ctx.arc(x + dx, y - dy, 3.5, 0, Math.PI * 2); ctx.fill(); });
+  } else if (o.kind === 'puddle') {
+    ell(ctx, x + o.w / 2, y + 2, o.w / 2, 9, '#4aa3e0');
+    ell(ctx, x + o.w / 2 - 10, y, 14, 3, '#a8dcff', 0, false);
+  } else if (o.kind === 'cone') {
+    ctx.beginPath(); ctx.moveTo(x + 4, y); ctx.lineTo(x + o.w / 2, y - o.h); ctx.lineTo(x + o.w - 4, y); ctx.closePath(); ctx.fillStyle = '#ff7a1a'; ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(x + 10, y - 16); ctx.lineTo(x + 20, y - 16); ctx.lineTo(x + 18, y - 24); ctx.lineTo(x + 12, y - 24); ctx.fill();
+    rrect(ctx, x - 2, y - 5, o.w + 4, 6, 2); ctx.fillStyle = '#ff7a1a'; ctx.fill(); ctx.stroke();
+  }
+}
+
+// ---------- Gracz ----------
+function drawPlayer() {
+  const p = player;
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  // cień
+  ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.beginPath(); ctx.ellipse(0, GROUND - p.y + 2, 18, 4, 0, 0, Math.PI * 2); ctx.fill();
+  const stumbling = p.stumble > 0;
+  if (stumbling) ctx.rotate(Math.sin(p.stumble * 25) * 0.25 + 0.2);
+  const s = Math.sin(p.run), air = !p.onGround;
+  ctx.lineCap = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = OUT;
+  // nogi
+  const leg = (ang, col) => { ctx.save(); ctx.translate(0, -26); ctx.rotate(ang); ctx.fillStyle = col; rrect(ctx, -5, 0, 10, 24, 5); ctx.fill(); ctx.stroke(); ell(ctx, 3, 25, 8, 5, '#e8463d'); ctx.restore(); };
+  if (air) { leg(-0.9, '#2f5fa8'); leg(0.6, '#3d72c4'); } else { leg(-s * 0.9, '#2f5fa8'); leg(s * 0.9, '#3d72c4'); }
+  // tułów
+  rrect(ctx, -12, -54, 24, 30, 9); ctx.fillStyle = '#ffd23f'; ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#e8572a'; ctx.fillRect(-10, -44, 20, 5);
+  // ręce
+  const arm = ang => { ctx.save(); ctx.translate(0, -48); ctx.rotate(ang); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, 20); ctx.strokeStyle = OUT; ctx.lineWidth = 9; ctx.stroke(); ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 5; ctx.stroke(); ctx.lineWidth = 3; ctx.strokeStyle = OUT; ell(ctx, 0, 22, 5, 5, '#ffcf9e'); ctx.restore(); };
+  if (air) { arm(-2.6); arm(-2.0); } else { arm(s * 1.1); arm(-s * 1.1); }
+  // głowa
+  ell(ctx, 2, -70, 16, 16, '#ffcf9e');
+  ctx.fillStyle = '#7a3b12'; ctx.beginPath(); ctx.arc(0, -74, 16, Math.PI * 0.95, Math.PI * 2.1); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-14, -78); ctx.lineTo(-22, -84); ctx.lineTo(-12, -86); ctx.closePath(); ctx.fill();
+  // oczy
+  const scared = stumbling || state === 'caught' || dog.gap < 90;
+  ctx.fillStyle = '#fff'; ell(ctx, 9, -70, 5, scared ? 6 : 5, '#fff', 0, false);
+  ctx.fillStyle = OUT; ctx.beginPath(); ctx.arc(10, -70, 2.4, 0, Math.PI * 2); ctx.fill();
+  // usta
+  ctx.beginPath();
+  if (scared) { ctx.ellipse(12, -61, 3, 4, 0, 0, Math.PI * 2); ctx.fillStyle = OUT; ctx.fill(); }
+  else { ctx.arc(10, -63, 5, 0.2, Math.PI - 0.6); ctx.stroke(); }
+  ell(ctx, 3, -64, 3, 2, 'rgba(255,120,120,0.6)', 0, false);
+  // pot gdy pies blisko
+  if (scared) { ctx.fillStyle = '#7ccfff'; ctx.beginPath(); ctx.moveTo(-8, -88); ctx.quadraticCurveTo(-14, -78, -8, -76); ctx.quadraticCurveTo(-2, -78, -8, -88); ctx.fill(); }
+  ctx.restore();
+}
+
+// ---------- Pies (z boku) ----------
+const FUR = '#d99a4e', FUR_D = '#b06f2c', FUR_L = '#f0c287';
+function drawDogSide(x, y, run, hop, sc = 1) {
+  ctx.save();
+  ctx.translate(x, y - hop);
+  ctx.scale(sc, sc);
+  ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.beginPath(); ctx.ellipse(0, hop / sc + 2, 34, 5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.lineWidth = 3; ctx.strokeStyle = OUT; ctx.lineCap = 'round';
+  const s = Math.sin(run);
+  // ogon (merda!)
+  ctx.save(); ctx.translate(-30, -36); ctx.rotate(-0.8 + Math.sin(time * 20) * 0.5);
+  ell(ctx, 0, -10, 6, 13, FUR, 0); ctx.restore();
+  // tylne łapy
+  const legF = (lx, ang, col) => { ctx.save(); ctx.translate(lx, -24); ctx.rotate(ang); rrect(ctx, -6, -2, 12, 24, 6); ctx.fillStyle = col; ctx.fill(); ctx.stroke(); ell(ctx, 2, 22, 8, 5, FUR_L); ctx.restore(); };
+  legF(-20, s * 0.8, FUR_D); legF(18, -s * 0.8, FUR_D);
+  // tułów
+  ell(ctx, 0, -32, 36, 18, FUR);
+  ell(ctx, 4, -24, 24, 8, FUR_L, 0, false);
+  legF(-14, -s * 0.8, FUR); legF(24, s * 0.8, FUR);
+  // głowa
+  ctx.save(); ctx.translate(34, -54); ctx.rotate(Math.sin(run * 0.5) * 0.06);
+  ell(ctx, 0, 0, 20, 19, FUR);
+  ell(ctx, 18, 6, 13, 10, FUR_L);           // pyszczek
+  // język
+  ctx.save(); ctx.translate(20, 15); ctx.rotate(0.2 + Math.sin(time * 12) * 0.15);
+  rrect(ctx, -5, -2, 10, 16, 5); ctx.fillStyle = '#ff6f91'; ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, 2); ctx.lineTo(0, 10); ctx.stroke(); ctx.restore();
+  ell(ctx, 30, 2, 5, 4, '#2a1a0d');           // nos
+  ell(ctx, 29, 0.5, 1.6, 1.2, '#fff', 0, false);
+  // oko
+  ell(ctx, 8, -6, 4.5, 5.5, '#2a1a0d', 0, false);
+  ell(ctx, 9.5, -8, 1.6, 1.6, '#fff', 0, false);
+  ctx.beginPath(); ctx.arc(9, -14, 6, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke();
+  // długie, kręcone ucho cocker spaniela
+  ctx.save(); ctx.translate(-6, -8); ctx.rotate(0.25 + Math.sin(run) * 0.25);
+  ctx.beginPath(); ctx.moveTo(-6, 0);
+  ctx.quadraticCurveTo(-16, 18, -12, 34);
+  for (let i = 0; i < 3; i++) ctx.arc(-6 + i * 7, 36, 5, Math.PI, 0, true);
+  ctx.quadraticCurveTo(12, 16, 6, 0); ctx.closePath();
+  ctx.fillStyle = FUR_D; ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = '#8a5320'; ctx.beginPath(); ctx.arc(-4, 16, 4, 0.5, 2.5); ctx.arc(2, 26, 4, 0.5, 2.5); ctx.stroke();
+  ctx.restore();
+  ctx.restore();
+  ctx.restore();
+}
+
+// ---------- Wielka, wesoła głowa psa (menu i koniec gry) ----------
+function drawDogFace(c, cx, cy, r, t) {
+  c.save(); c.translate(cx, cy); c.lineWidth = r * 0.05; c.strokeStyle = OUT; c.lineCap = 'round'; c.lineJoin = 'round';
+  const bob = Math.sin(t * 5) * r * 0.03;
+  c.translate(0, bob);
+  // uszy
+  for (const side of [-1, 1]) {
+    c.save(); c.translate(side * r * 0.72, -r * 0.35); c.rotate(side * (0.15 + Math.sin(t * 6 + side) * 0.08));
+    c.beginPath(); c.moveTo(0, 0);
+    c.bezierCurveTo(side * r * 0.55, r * 0.2, side * r * 0.5, r * 0.9, side * r * 0.25, r * 1.2);
+    for (let i = 0; i < 4; i++) { const px = side * (r * 0.25 - i * r * 0.14); c.quadraticCurveTo(px - side * r * 0.07, r * 1.34, px - side * r * 0.14, r * 1.2); }
+    c.bezierCurveTo(-side * r * 0.3, r * 0.8, -side * r * 0.2, r * 0.2, 0, 0);
+    c.closePath(); c.fillStyle = FUR_D; c.fill(); c.stroke();
+    c.strokeStyle = '#8a5320'; c.lineWidth = r * 0.03;
+    for (let i = 0; i < 3; i++) { c.beginPath(); c.arc(side * r * 0.12, r * (0.35 + i * 0.25), r * 0.08, 0.3, 2.8); c.stroke(); }
+    c.strokeStyle = OUT; c.lineWidth = r * 0.05;
+    c.restore();
+  }
+  // głowa
+  c.beginPath(); c.ellipse(0, 0, r * 0.85, r * 0.8, 0, 0, Math.PI * 2); c.fillStyle = FUR; c.fill(); c.stroke();
+  // grzywka (kręcone włosy na czubku)
+  c.fillStyle = FUR_D;
+  for (let i = -2; i <= 2; i++) { c.beginPath(); c.arc(i * r * 0.16, -r * 0.72, r * 0.13, 0, Math.PI * 2); c.fill(); c.stroke(); }
+  c.beginPath(); c.ellipse(0, -r * 0.62, r * 0.42, r * 0.12, 0, 0, Math.PI * 2); c.fillStyle = FUR_D; c.fill();
+  // pyszczek
+  c.beginPath(); c.ellipse(0, r * 0.32, r * 0.5, r * 0.36, 0, 0, Math.PI * 2); c.fillStyle = FUR_L; c.fill(); c.stroke();
+  // oczy - wielkie i szczęśliwe
+  for (const side of [-1, 1]) {
+    c.beginPath(); c.ellipse(side * r * 0.32, -r * 0.12, r * 0.15, r * 0.18, 0, 0, Math.PI * 2); c.fillStyle = '#fff'; c.fill(); c.stroke();
+    c.beginPath(); c.ellipse(side * r * 0.3, -r * 0.1, r * 0.1, r * 0.12, 0, 0, Math.PI * 2); c.fillStyle = '#3b1f0b'; c.fill();
+    c.beginPath(); c.arc(side * r * 0.27, -r * 0.15, r * 0.04, 0, Math.PI * 2); c.fillStyle = '#fff'; c.fill();
+    c.beginPath(); c.arc(side * r * 0.33, -r * 0.06, r * 0.02, 0, Math.PI * 2); c.fill();
+    // brwi uniesione
+    c.beginPath(); c.arc(side * r * 0.32, -r * 0.3, r * 0.12, Math.PI * 1.2, Math.PI * 1.8); c.stroke();
+    // rumieńce
+    c.beginPath(); c.ellipse(side * r * 0.55, r * 0.15, r * 0.1, r * 0.06, 0, 0, Math.PI * 2); c.fillStyle = 'rgba(255,110,130,0.55)'; c.fill();
+  }
+  // nos
+  c.beginPath(); c.ellipse(0, r * 0.12, r * 0.15, r * 0.1, 0, 0, Math.PI * 2); c.fillStyle = '#2a1a0d'; c.fill();
+  c.beginPath(); c.ellipse(-r * 0.04, r * 0.09, r * 0.05, r * 0.03, 0, 0, Math.PI * 2); c.fillStyle = '#fff'; c.fill();
+  // szeroki uśmiech z otwartą buzią
+  c.beginPath(); c.moveTo(0, r * 0.22); c.lineTo(0, r * 0.3); c.stroke();
+  c.beginPath(); c.moveTo(-r * 0.32, r * 0.3); c.quadraticCurveTo(0, r * 0.82, r * 0.32, r * 0.3); c.quadraticCurveTo(0, r * 0.38, -r * 0.32, r * 0.3); c.closePath();
+  c.fillStyle = '#7a1f2b'; c.fill(); c.stroke();
+  // język
+  c.save(); c.translate(0, r * 0.48); c.rotate(Math.sin(t * 8) * 0.12);
+  c.beginPath(); c.moveTo(-r * 0.15, 0); c.lineTo(-r * 0.15, r * 0.22); c.arc(0, r * 0.22, r * 0.15, Math.PI, 0, true); c.lineTo(r * 0.15, 0); c.closePath();
+  c.fillStyle = '#ff6f91'; c.fill(); c.stroke();
+  c.beginPath(); c.moveTo(0, r * 0.05); c.lineTo(0, r * 0.25); c.stroke();
+  c.restore();
+  c.restore();
+}
+
+// ---------- HUD ----------
+function drawHUD() {
+  const score = Math.floor(distance / 30);
+  ctx.font = 'bold 26px "Comic Sans MS", "Chalkboard SE", sans-serif';
+  ctx.textAlign = 'left'; ctx.lineWidth = 6; ctx.strokeStyle = OUT; ctx.fillStyle = '#fff';
+  ctx.strokeText(score + ' m', 14, 38); ctx.fillText(score + ' m', 14, 38);
+  ctx.font = 'bold 15px "Comic Sans MS", sans-serif'; ctx.lineWidth = 4;
+  ctx.strokeText('Rekord: ' + best + ' m', 14, 60); ctx.fillText('Rekord: ' + best + ' m', 14, 60);
+  // pasek odległości od psa
+  const bw = Math.min(200, VW * 0.35), bx = 14, by = 72;
+  const maxGap = Math.min(220, player.x - 55);
+  const frac = Math.max(0, Math.min(1, (dog.gap - 42) / (maxGap - 42)));
+  rrect(ctx, bx, by, bw, 16, 8); ctx.fillStyle = '#fff8e7'; ctx.fill(); ctx.lineWidth = 3; ctx.stroke();
+  if (frac > 0) { rrect(ctx, bx + 2, by + 2, (bw - 4) * frac, 12, 6); ctx.fillStyle = frac > 0.5 ? '#4cb050' : frac > 0.25 ? '#f2b928' : '#e8463d'; ctx.fill(); }
+  ctx.font = '18px sans-serif'; ctx.fillText('🐶', bx + bw + 6, by + 15);
+  if (player.stumble > 0 && state === 'play') {
+    ctx.font = 'bold 28px "Comic Sans MS", sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 6;
+    ctx.strokeText('Ups!', player.x, player.y - 104); ctx.fillStyle = '#ffd23f'; ctx.fillText('Ups!', player.x, player.y - 104);
+  }
+  if (time < 2.2 && state === 'play') {
+    ctx.globalAlpha = Math.min(1, 2.2 - time);
+    ctx.font = 'bold 22px "Comic Sans MS", sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 6; ctx.fillStyle = '#fff';
+    ctx.strokeText('Dotknij, aby skoczyć!', VW / 2, GROUND * 0.42); ctx.fillText('Dotknij, aby skoczyć!', VW / 2, GROUND * 0.42);
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ---------- Pętla ----------
+function render() {
+  ctx.setTransform(DPR * scale, 0, 0, DPR * scale, 0, 0);
+  if (shake > 0) ctx.translate((Math.random() - 0.5) * 8, (Math.random() - 0.5) * 8);
+  drawBackground();
+  for (const o of obstacles) drawObstacle(o);
+  drawPlayer();
+  if (state === 'caught') {
+    drawDogSide(dog.x + caughtT * 10, GROUND, dog.run, Math.abs(Math.sin(caughtT * 9)) * 30, 1);
+    ctx.font = 'bold 32px "Comic Sans MS", sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 6; ctx.strokeStyle = OUT; ctx.fillStyle = '#fff';
+    ctx.strokeText('Hau! Hau!', dog.x + 30, GROUND - 120); ctx.fillText('Hau! Hau!', dog.x + 30, GROUND - 120);
+  } else drawDogSide(dog.x, GROUND, dog.run, dog.hop, 1);
+  for (const pt of particles) {
+    ctx.globalAlpha = Math.max(0, pt.life / 0.6);
+    if (pt.star) { ctx.font = '16px sans-serif'; ctx.fillText('⭐', pt.x, pt.y); }
+    else { ctx.fillStyle = pt.c; ctx.beginPath(); ctx.arc(pt.x, pt.y, 4, 0, Math.PI * 2); ctx.fill(); }
+  }
+  ctx.globalAlpha = 1;
+  if (state === 'play' || state === 'caught' || state === 'pause') drawHUD();
+
+  // twarze psa na nakładkach
+  if (state === 'menu') { const mc = $('menuDog').getContext('2d'); mc.clearRect(0, 0, 440, 380); drawDogFace(mc, 220, 140, 135, time); }
+  if (state === 'over') { const oc = $('overDog').getContext('2d'); oc.clearRect(0, 0, 600, 540); drawDogFace(oc, 300, 210, 200, time); }
+}
+
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(0.033, (now - last) / 1000); last = now;
+  if (state !== 'pause') update(dt);
+  render();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
