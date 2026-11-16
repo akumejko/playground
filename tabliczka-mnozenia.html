@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#4f46e5">
+<title>Tabliczka mnożenia</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: linear-gradient(160deg, #6366f1, #8b5cf6);
+    color: #1f2937;
+    display: flex; justify-content: center;
+    min-height: 100dvh;
+  }
+  .screen {
+    display: none; flex-direction: column; width: 100%; max-width: 480px;
+    padding: 16px; min-height: 100dvh;
+  }
+  .screen.active { display: flex; }
+  .card {
+    background: #fff; border-radius: 20px; padding: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.2);
+  }
+  h1 { color: #fff; text-align: center; font-size: 2rem; margin: 40px 0 8px; }
+  .subtitle { color: #e0e7ff; text-align: center; margin: 0 0 32px; }
+  .btn {
+    display: block; width: 100%; border: 0; border-radius: 16px;
+    padding: 18px; font-size: 1.25rem; font-weight: 700; cursor: pointer;
+    margin-bottom: 14px; color: #fff; background: #f59e0b;
+    box-shadow: 0 4px 0 #b45309; transition: transform .05s;
+  }
+  .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #b45309; }
+  .btn.secondary { background: #10b981; box-shadow: 0 4px 0 #047857; }
+  .btn.secondary:active { box-shadow: 0 1px 0 #047857; }
+  .btn.ghost { background: rgba(255,255,255,.2); box-shadow: none; }
+  .best { color: #fff; text-align: center; margin-top: 12px; opacity: .9; }
+
+  /* Game */
+  .topbar { display: flex; justify-content: space-between; align-items: center; color: #fff; margin-bottom: 12px; }
+  .topbar .back { background: rgba(255,255,255,.2); border: 0; color: #fff; border-radius: 10px; padding: 8px 12px; font-size: 1rem; }
+  .timer { font-size: 1.6rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .penalty { color: #fecaca; font-size: .9rem; text-align: right; }
+  .progress { display: flex; gap: 4px; margin-bottom: 16px; }
+  .progress span { flex: 1; height: 8px; border-radius: 4px; background: rgba(255,255,255,.3); }
+  .progress span.ok { background: #34d399; }
+  .progress span.bad { background: #f87171; }
+  .progress span.cur { background: #fff; }
+  .question { text-align: center; font-size: 3rem; font-weight: 800; padding: 24px 8px; position: relative; }
+  .answer {
+    text-align: center; font-size: 2.6rem; font-weight: 800; min-height: 64px;
+    border-bottom: 4px solid #c7d2fe; margin: 0 20% 8px; color: #4f46e5;
+  }
+  .feedback { text-align: center; height: 28px; font-weight: 700; font-size: 1.1rem; }
+  .feedback.ok { color: #059669; }
+  .feedback.bad { color: #dc2626; }
+  .shake { animation: shake .35s; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-10px)} 75%{transform:translateX(10px)} }
+  .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: auto; padding-top: 16px; }
+  .key {
+    border: 0; border-radius: 14px; background: #fff; font-size: 1.8rem; font-weight: 700;
+    padding: 16px 0; box-shadow: 0 4px 0 #c7d2fe; color: #312e81; cursor: pointer;
+    touch-action: manipulation;
+  }
+  .key:active { transform: translateY(3px); box-shadow: 0 1px 0 #c7d2fe; }
+  .key.ok { background: #10b981; color: #fff; box-shadow: 0 4px 0 #047857; }
+  .key.del { background: #fde68a; box-shadow: 0 4px 0 #d97706; }
+
+  /* Results */
+  .result-time { text-align: center; font-size: 2.6rem; font-weight: 800; color: #4f46e5; }
+  .result-sub { text-align: center; color: #6b7280; margin-bottom: 12px; }
+  .newbest { text-align: center; color: #d97706; font-weight: 700; }
+  table.res { width: 100%; border-collapse: collapse; font-size: 1.1rem; }
+  table.res td { padding: 8px 4px; border-bottom: 1px solid #e5e7eb; }
+  table.res td:first-child { color: #9ca3af; width: 28px; }
+  table.res .eq { font-weight: 700; }
+  table.res .yours { text-align: right; }
+  .okc { color: #059669; font-weight: 700; }
+  .badc { color: #dc2626; text-decoration: line-through; }
+  .scroll { overflow-y: auto; flex: 1; }
+
+  /* Table */
+  .grid { display: grid; grid-template-columns: repeat(11, 1fr); gap: 2px; font-variant-numeric: tabular-nums; }
+  .grid div {
+    aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+    background: #f3f4f6; border-radius: 4px; font-size: clamp(.7rem, 3.4vw, 1rem); font-weight: 600;
+  }
+  .grid div.h { background: #4f46e5; color: #fff; font-weight: 800; }
+  .grid div.corner { background: #f59e0b; color: #fff; }
+  .grid div.hl { background: #e0e7ff; }
+  .grid div.sel { background: #f59e0b; color: #fff; transform: scale(1.15); z-index: 1; }
+  .grid div.hidden { color: transparent; }
+  .info { text-align: center; font-size: 1.4rem; font-weight: 700; min-height: 36px; margin: 12px 0 4px; color: #4f46e5; }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin-bottom: 12px; }
+  .tabs button {
+    border: 0; border-radius: 10px; padding: 8px 10px; font-size: 1rem; font-weight: 700;
+    background: #e0e7ff; color: #3730a3; min-width: 40px;
+  }
+  .tabs button.on { background: #4f46e5; color: #fff; }
+  .single { font-size: 1.5rem; line-height: 1.9; text-align: center; }
+  .single .row { display: flex; justify-content: center; gap: 8px; }
+  .single .row span.r { font-weight: 800; color: #4f46e5; min-width: 50px; text-align: left; cursor: pointer; }
+  .single .row span.r.hidden { color: transparent; background: #e0e7ff; border-radius: 8px; }
+  .toggle { display: flex; align-items: center; gap: 8px; justify-content: center; margin-top: 12px; color: #374151; }
+</style>
+</head>
+<body>
+
+<!-- MENU -->
+<section id="menu" class="screen active">
+  <h1>✖️ Tabliczka mnożenia</h1>
+  <p class="subtitle">Ćwicz mnożenie i dzielenie do 100</p>
+  <button class="btn" onclick="startGame()">▶️ Graj</button>
+  <button class="btn secondary" onclick="showTable()">📋 Pokaż tabliczkę mnożenia</button>
+  <div class="best" id="bestMenu"></div>
+</section>
+
+<!-- GAME -->
+<section id="game" class="screen">
+  <div class="topbar">
+    <button class="back" onclick="quitGame()">✕</button>
+    <div>
+      <div class="timer" id="timer">0.0 s</div>
+      <div class="penalty" id="penalty"></div>
+    </div>
+  </div>
+  <div class="progress" id="progress"></div>
+  <div class="card">
+    <div class="question" id="question"></div>
+    <div class="answer" id="answer"></div>
+    <div class="feedback" id="feedback"></div>
+  </div>
+  <div class="keypad" id="keypad"></div>
+</section>
+
+<!-- RESULTS -->
+<section id="results" class="screen">
+  <h1 style="margin-top:16px">🏁 Koniec!</h1>
+  <div class="card scroll">
+    <div class="result-time" id="resTime"></div>
+    <div class="result-sub" id="resSub"></div>
+    <div class="newbest" id="resBest"></div>
+    <table class="res" id="resTable"></table>
+  </div>
+  <div style="margin-top:14px">
+    <button class="btn" onclick="startGame()">🔁 Zagraj jeszcze raz</button>
+    <button class="btn ghost" onclick="go('menu')">🏠 Menu</button>
+  </div>
+</section>
+
+<!-- TABLE -->
+<section id="table" class="screen">
+  <div class="topbar">
+    <button class="back" onclick="go('menu')">← Menu</button>
+    <strong>Tabliczka mnożenia</strong>
+    <span></span>
+  </div>
+  <div class="card scroll">
+    <div class="tabs" id="tabs"></div>
+    <div id="tableView"></div>
+    <label class="toggle"><input type="checkbox" id="hideToggle" onchange="renderTable()"> Ukryj wyniki (stuknij, aby odkryć)</label>
+  </div>
+</section>
+
+<script>
+const N = 10, PENALTY = 10;
+let questions = [], idx = 0, input = '', startTime = 0, penalties = 0, timerId = null, locked = false;
+
+function go(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === id));
+  if (id === 'menu') updateBestMenu();
+}
+const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+
+function makeQuestions() {
+  const qs = [], seen = new Set();
+  while (qs.length < N) {
+    const a = rnd(1, 10), b = rnd(1, 10), div = Math.random() < 0.5;
+    const q = div
+      ? { text: `${a * b} : ${a}`, answer: b }
+      : { text: `${a} × ${b}`, answer: a * b };
+    if (seen.has(q.text)) continue;
+    // mniej trywialnych przykładów z 1
+    if ((a === 1 || b === 1) && Math.random() < 0.7) continue;
+    seen.add(q.text); qs.push(q);
+  }
+  return qs;
+}
+
+function startGame() {
+  questions = makeQuestions();
+  idx = 0; penalties = 0; input = ''; locked = false;
+  buildKeypad();
+  go('game');
+  startTime = performance.now();
+  clearInterval(timerId);
+  timerId = setInterval(updateTimer, 100);
+  showQuestion();
+}
+function quitGame() { clearInterval(timerId); go('menu'); }
+
+function elapsed() { return (performance.now() - startTime) / 1000; }
+function updateTimer() {
+  document.getElementById('timer').textContent = (elapsed() + penalties * PENALTY).toFixed(1) + ' s';
+  document.getElementById('penalty').textContent = penalties ? `w tym kary: +${penalties * PENALTY} s` : '';
+}
+
+function showQuestion() {
+  const q = questions[idx];
+  document.getElementById('question').textContent = q.text + ' = ?';
+  input = ''; renderInput();
+  const fb = document.getElementById('feedback'); fb.textContent = ''; fb.className = 'feedback';
+  document.getElementById('progress').innerHTML = questions.map((qq, i) =>
+    `<span class="${i < idx ? (qq.correct ? 'ok' : 'bad') : i === idx ? 'cur' : ''}"></span>`).join('');
+}
+function renderInput() { document.getElementById('answer').textContent = input; }
+
+function buildKeypad() {
+  const keys = ['1','2','3','4','5','6','7','8','9','⌫','0','OK'];
+  const kp = document.getElementById('keypad');
+  kp.innerHTML = '';
+  keys.forEach(k => {
+    const b = document.createElement('button');
+    b.className = 'key' + (k === 'OK' ? ' ok' : k === '⌫' ? ' del' : '');
+    b.textContent = k;
+    b.addEventListener('click', () => press(k));
+    kp.appendChild(b);
+  });
+}
+function press(k) {
+  if (locked) return;
+  if (k === '⌫') input = input.slice(0, -1);
+  else if (k === 'OK') return submit();
+  else if (input.length < 3) input = (input + k).replace(/^0+(?=\d)/, '');
+  renderInput();
+}
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('game').classList.contains('active')) return;
+  if (/^\d$/.test(e.key)) press(e.key);
+  else if (e.key === 'Backspace') press('⌫');
+  else if (e.key === 'Enter') press('OK');
+});
+
+function submit() {
+  if (input === '') return;
+  const q = questions[idx];
+  q.given = parseInt(input, 10);
+  q.correct = q.given === q.answer;
+  const fb = document.getElementById('feedback');
+  locked = true;
+  if (q.correct) {
+    fb.textContent = '✔ Dobrze!'; fb.className = 'feedback ok';
+  } else {
+    penalties++;
+    fb.textContent = `✘ Źle! +${PENALTY} s (poprawnie: ${q.answer})`; fb.className = 'feedback bad';
+    const card = document.getElementById('question');
+    card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake');
+    if (navigator.vibrate) navigator.vibrate(200);
+  }
+  updateTimer();
+  setTimeout(() => {
+    locked = false;
+    idx++;
+    if (idx < N) showQuestion(); else finish();
+  }, q.correct ? 500 : 1400);
+}
+
+function finish() {
+  clearInterval(timerId);
+  const raw = elapsed(), total = raw + penalties * PENALTY;
+  const good = questions.filter(q => q.correct).length;
+  document.getElementById('resTime').textContent = total.toFixed(1) + ' s';
+  document.getElementById('resSub').textContent =
+    `Poprawne: ${good}/${N} · czas gry ${raw.toFixed(1)} s + kary ${penalties * PENALTY} s`;
+  const best = parseFloat(localStorage.getItem('tm_best'));
+  if (isNaN(best) || total < best) {
+    localStorage.setItem('tm_best', total.toFixed(1));
+    document.getElementById('resBest').textContent = '🏆 Nowy rekord!';
+  } else {
+    document.getElementById('resBest').textContent = `Rekord: ${best.toFixed(1)} s`;
+  }
+  document.getElementById('resTable').innerHTML = questions.map((q, i) => `
+    <tr>
+      <td>${i + 1}.</td>
+      <td class="eq">${q.text} = ${q.answer}</td>
+      <td class="yours">${q.correct ? `<span class="okc">✔ ${q.given}</span>` : `<span class="badc">${q.given}</span> ✘`}</td>
+    </tr>`).join('');
+  go('results');
+}
+
+function updateBestMenu() {
+  const best = localStorage.getItem('tm_best');
+  document.getElementById('bestMenu').textContent = best ? `🏆 Twój rekord: ${best} s` : '';
+}
+
+/* ---- Tabliczka ---- */
+let tableMode = 0; // 0 = cała tabela, 1..10 = pojedynczy rząd
+function showTable() {
+  const tabs = document.getElementById('tabs');
+  tabs.innerHTML = '';
+  ['Całość', ...Array.from({ length: 10 }, (_, i) => '×' + (i + 1))].forEach((label, i) => {
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.onclick = () => { tableMode = i; renderTable(); };
+    tabs.appendChild(b);
+  });
+  renderTable();
+  go('table');
+}
+function renderTable() {
+  const hide = document.getElementById('hideToggle').checked;
+  document.querySelectorAll('#tabs button').forEach((b, i) => b.classList.toggle('on', i === tableMode));
+  const view = document.getElementById('tableView');
+  if (tableMode === 0) {
+    let html = '<div class="info" id="info">Stuknij w liczbę</div><div class="grid" id="grid">';
+    html += '<div class="h corner">×</div>';
+    for (let c = 1; c <= 10; c++) html += `<div class="h">${c}</div>`;
+    for (let r = 1; r <= 10; r++) {
+      html += `<div class="h">${r}</div>`;
+      for (let c = 1; c <= 10; c++)
+        html += `<div data-r="${r}" data-c="${c}" class="${hide ? 'hidden' : ''}">${r * c}</div>`;
+    }
+    view.innerHTML = html + '</div>';
+    document.querySelectorAll('#grid div[data-r]').forEach(d => d.addEventListener('click', () => selectCell(d)));
+  } else {
+    const n = tableMode;
+    let html = '<div class="single">';
+    for (let i = 1; i <= 10; i++)
+      html += `<div class="row"><span>${n} × ${i} =</span><span class="r ${hide ? 'hidden' : ''}" onclick="this.classList.toggle('hidden')">${n * i}</span></div>`;
+    view.innerHTML = html + '</div>';
+  }
+}
+function selectCell(d) {
+  const r = +d.dataset.r, c = +d.dataset.c;
+  document.querySelectorAll('#grid div[data-r]').forEach(x => {
+    x.classList.remove('sel', 'hl');
+    if (+x.dataset.r === r || +x.dataset.c === c) x.classList.add('hl');
+  });
+  d.classList.add('sel');
+  d.classList.remove('hidden');
+  document.getElementById('info').textContent = `${r} × ${c} = ${r * c}   ·   ${r * c} : ${r} = ${c}`;
+}
+
+updateBestMenu();
+</script>
+</body>
+</html>
