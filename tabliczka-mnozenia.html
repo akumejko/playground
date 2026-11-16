@@ -82,7 +82,7 @@
   .scroll { overflow-y: auto; flex: 1; }
 
   /* Table */
-  .grid { display: grid; grid-template-columns: repeat(11, 1fr); gap: 2px; font-variant-numeric: tabular-nums; }
+  .grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; font-variant-numeric: tabular-nums; }
   .grid div {
     aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
     background: #f3f4f6; border-radius: 4px; font-size: clamp(.7rem, 3.4vw, 1rem); font-weight: 600;
@@ -111,7 +111,7 @@
 <!-- MENU -->
 <section id="menu" class="screen active">
   <h1>✖️ Tabliczka mnożenia</h1>
-  <p class="subtitle">Ćwicz mnożenie i dzielenie do 100</p>
+  <p class="subtitle">Ćwicz mnożenie i dzielenie (liczby 1–9)</p>
   <button class="btn" onclick="startGame()">▶️ Graj</button>
   <button class="btn secondary" onclick="showTable()">📋 Pokaż tabliczkę mnożenia</button>
   <div class="best" id="bestMenu"></div>
@@ -165,7 +165,7 @@
 </section>
 
 <script>
-const N = 10, PENALTY = 10;
+const N = 10, PENALTY = 10, MAX = 9;
 let questions = [], idx = 0, input = '', startTime = 0, penalties = 0, timerId = null, locked = false;
 
 function go(id) {
@@ -177,7 +177,7 @@ const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 function makeQuestions() {
   const qs = [], seen = new Set();
   while (qs.length < N) {
-    const a = rnd(1, 10), b = rnd(1, 10), div = Math.random() < 0.5;
+    const a = rnd(1, MAX), b = rnd(1, MAX), div = Math.random() < 0.5;
     const q = div
       ? { text: `${a * b} : ${a}`, answer: b }
       : { text: `${a} × ${b}`, answer: a * b };
@@ -296,11 +296,11 @@ function updateBestMenu() {
 }
 
 /* ---- Tabliczka ---- */
-let tableMode = 0; // 0 = cała tabela, 1..10 = pojedynczy rząd
+let tableMode = 0; // 0 = cała tabela, 1..MAX = pojedynczy rząd
 function showTable() {
   const tabs = document.getElementById('tabs');
   tabs.innerHTML = '';
-  ['Całość', ...Array.from({ length: 10 }, (_, i) => '×' + (i + 1))].forEach((label, i) => {
+  ['Całość', ...Array.from({ length: MAX }, (_, i) => '×' + (i + 1))].forEach((label, i) => {
     const b = document.createElement('button');
     b.textContent = label;
     b.onclick = () => { tableMode = i; renderTable(); };
@@ -316,10 +316,10 @@ function renderTable() {
   if (tableMode === 0) {
     let html = '<div class="info" id="info">Stuknij w liczbę</div><div class="grid" id="grid">';
     html += '<div class="h corner">×</div>';
-    for (let c = 1; c <= 10; c++) html += `<div class="h">${c}</div>`;
-    for (let r = 1; r <= 10; r++) {
+    for (let c = 1; c <= MAX; c++) html += `<div class="h">${c}</div>`;
+    for (let r = 1; r <= MAX; r++) {
       html += `<div class="h">${r}</div>`;
-      for (let c = 1; c <= 10; c++)
+      for (let c = 1; c <= MAX; c++)
         html += `<div data-r="${r}" data-c="${c}" class="${hide ? 'hidden' : ''}">${r * c}</div>`;
     }
     view.innerHTML = html + '</div>';
@@ -327,7 +327,7 @@ function renderTable() {
   } else {
     const n = tableMode;
     let html = '<div class="single">';
-    for (let i = 1; i <= 10; i++)
+    for (let i = 1; i <= MAX; i++)
       html += `<div class="row"><span>${n} × ${i} =</span><span class="r ${hide ? 'hidden' : ''}" onclick="this.classList.toggle('hidden')">${n * i}</span></div>`;
     view.innerHTML = html + '</div>';
   }
